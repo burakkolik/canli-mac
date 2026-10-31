@@ -60,6 +60,13 @@ jobs:
           fi
           echo "PAGES_DIR=$OUT" >> "$GITHUB_ENV"
 
+      # GitHub Pages serves files with a 10 minute cache; versioned asset URLs force browsers to load the new build.
+      - name: Cache-bust assets
+        run: |
+          SHA="${GITHUB_SHA::7}"
+          find "$PAGES_DIR" -name '*.html' -not -path '*/node_modules/*' -not -path '*/.git/*' -print0 \
+            | xargs -0 -r sed -i -E "s~((src|href)=\")([^\":?#]+\.(js|mjs|css))\"~\1\3?v=${SHA}\"~g"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ env.PAGES_DIR }}
