@@ -1,0 +1,75 @@
+# Managed by claude-telegram-bot (v1). Manual edits will be overwritten.
+name: Claude Telegram
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Task id
+        required: true
+      kind:
+        description: task or probe
+        required: false
+        default: task
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: claude-telegram-${{ inputs.task }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    if: github.actor == 'burakkolik'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      BOT_URL: https://claude-telegram-bot.burakc3tin.workers.dev
+      TASK_ID: ${{ inputs.task }}
+    steps:
+      - name: Download runner
+        run: curl -fsSL --retry 3 "$BOT_URL/runner/runner.mjs" -o "$RUNNER_TEMP/runner.mjs"
+
+      - uses: actions/checkout@v4
+        if: inputs.kind != 'probe'
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Flutter
+        if: inputs.kind != 'probe' && hashFiles('pubspec.yaml') != ''
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Restore Claude session
+        if: inputs.kind != 'probe'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.claude/projects
+          key: claude-session-${{ inputs.task }}-${{ github.run_id }}
+          restore-keys: claude-session-${{ inputs.task }}-
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Claude
+        run: node "$RUNNER_TEMP/runner.mjs"
+
+      - name: Save Claude session
+        if: always() && inputs.kind != 'probe'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.claude/projects
+          key: claude-session-${{ inputs.task }}-${{ github.run_id }}
+
+      - name: Report failure
+        if: failure()
+        run: |
+          if [ -f "$RUNNER_TEMP/runner.mjs" ]; then node "$RUNNER_TEMP/runner.mjs" --failed; fi
