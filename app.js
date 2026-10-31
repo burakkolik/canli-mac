@@ -346,7 +346,7 @@
       .replace(/uefa\s*/g, '')
       .replace(/champions league/g, 'Şampiyonlar Ligi').replace(/europa conference league|conference league/g, 'Konferans Ligi')
       .replace(/europa league/g, 'Avrupa Ligi').replace(/qualif\w*/g, 'ön eleme').replace(/play-?offs?/g, 'play-off')
-      .replace(/relegat\w*/g, 'Küme düşme').replace(/round/g, 'tur').replace(/\bfirst\b/g, '1.').replace(/\bsecond\b/g, '2.').replace(/\bthird\b/g, '3.')
+      .replace(/relegat\w*/g, 'Küme düşme').replace(/round/g, 'turu').replace(/\bfirst\b/g, '1.').replace(/\bsecond\b/g, '2.').replace(/\bthird\b/g, '3.')
       .replace(/^./, (c) => c.toLocaleUpperCase('tr-TR'));
   };
   const tsheet = $('#tableSheet'), tbody = $('#tableBody');
