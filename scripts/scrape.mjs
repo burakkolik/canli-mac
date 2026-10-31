@@ -30,3 +30,11 @@ drop.add('details');
 await writeFile('data/season.json', JSON.stringify({ updated: new Date().toISOString(), events: [...season.values()] },
   (k, v) => (drop.has(k) ? undefined : v)));
 console.log(`${season.size} sezon maçı kaydedildi`);
+
+// Puan durumu (yedek)
+const st = await fetch('https://site.api.espn.com/apis/v2/sports/soccer/tur.1/standings');
+if (!st.ok) throw new Error(`ESPN ${st.status}`);
+const entries = (await st.json()).children[0].standings.entries;
+await writeFile('data/standings.json', JSON.stringify({ updated: new Date().toISOString(), entries },
+  (k, v) => (k === 'links' ? undefined : v)));
+console.log(`${entries.length} takımlık puan durumu kaydedildi`);

@@ -1,5 +1,4 @@
 (() => {
-  const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/tur.1/scoreboard?';
   const TZ = 'Europe/Istanbul';
   const $ = (s) => document.querySelector(s);
   const list = $('#list'), statusEl = $('#status'), refreshBtn = $('#refresh');
@@ -16,27 +15,89 @@
   const compact = (s) => s.replace(/-/g, '');
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  async function fetchJSON(url) {
-    const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) throw new Error(r.status);
-    return r.json();
+  // ---------- veri katmanı: birden çok kaynak, zaman aşımı, otomatik yedek ----------
+  async function fetchJSON(url, ms = 8000) {
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const t = ctl && setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(url, { cache: 'no-store', signal: ctl ? ctl.signal : undefined });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally { if (t) clearTimeout(t); }
   }
-  const espn = (q) => fetchJSON(`${BASE}${q}&_=${Date.now()}`);
+  const bust = (u) => u + (u.includes('?') ? '&' : '?') + '_=' + Date.now();
+  const enc = encodeURIComponent;
+  const PROXIES = [
+    (u) => 'https://corsproxy.io/?url=' + enc(u),
+    (u) => 'https://api.allorigins.win/raw?url=' + enc(u),
+    (u) => 'https://api.codetabs.com/v1/proxy?quest=' + enc(u),
+  ];
+  const API = 'https://site.api.espn.com/apis/site/v2/sports/soccer/tur.1/scoreboard?';
+  const WEB = 'https://site.web.api.espn.com/apis/site/v2/sports/soccer/tur.1/scoreboard?';
+  const ST_API = 'https://site.api.espn.com/apis/v2/sports/soccer/tur.1/standings';
+  const ST_WEB = 'https://site.web.api.espn.com/apis/v2/sports/soccer/tur.1/standings';
+  const ST_CDN = 'https://cdn.espn.com/core/soccer/standings?xhr=1&league=tur.1';
+
+  const sbOk = (j) => { if (!j || !Array.isArray(j.events)) throw new Error('bad'); return j; };
+  const stOk = (e) => { if (!Array.isArray(e) || !e.length) throw new Error('bad'); return e; };
+  function sbSources(q) {
+    const list = [
+      { id: 'api', url: () => bust(API + q), pick: sbOk },
+      { id: 'web', url: () => bust(WEB + q), pick: sbOk },
+    ];
+    const m = /^dates=(\d{8})$/.exec(q);
+    if (m) list.push({ id: 'cdn', url: () => bust(`https://cdn.espn.com/core/soccer/scoreboard?xhr=1&league=tur.1&date=${m[1]}`), pick: (j) => sbOk(j.content.sbData) });
+    PROXIES.forEach((p, i) => list.push({ id: 'px' + i, slow: true, url: () => p(bust(API + q)), pick: sbOk }));
+    return list;
+  }
+  function stSources() {
+    const fromSite = (j) => stOk(j.children[0].standings.entries);
+    const list = [
+      { id: 'api', url: () => bust(ST_API), pick: fromSite },
+      { id: 'web', url: () => bust(ST_WEB), pick: fromSite },
+      { id: 'cdn', url: () => bust(ST_CDN), pick: (j) => stOk(j.content.standings.groups[0].standings.entries) },
+    ];
+    PROXIES.forEach((p, i) => list.push({ id: 'px' + i, slow: true, url: () => p(bust(ST_API)), pick: fromSite }));
+    return list;
+  }
+  // Son çalışan kaynak önce denenir; o da olmazsa diğerleri yarışır, ilk gelen kazanır.
+  const pref = {};
+  const any = (ps) => new Promise((res, rej) => {
+    let left = ps.length; if (!left) rej(new Error('kaynak yok'));
+    ps.forEach((p) => p.then(res, () => { if (--left === 0) rej(new Error('tüm kaynaklar başarısız')); }));
+  });
+  const trySrc = (s) => fetchJSON(s.url(), s.slow ? 12000 : 7000).then((j) => ({ id: s.id, data: s.pick(j) }));
+  async function robust(kind, srcs) {
+    const first = srcs.find((s) => s.id === pref[kind]);
+    if (first) {
+      try { return (await trySrc(first)).data; } catch (e) { /* diğerlerine geç */ }
+    }
+    const direct = srcs.filter((s) => !s.slow && s !== first);
+    let out;
+    try { out = await any(direct.map(trySrc)); }
+    catch (e) { out = await any(srcs.filter((s) => s.slow && s !== first).map(trySrc)); }
+    pref[kind] = out.id;
+    return out.data;
+  }
+  const espn = (q) => robust('sb', sbSources(q));
+  const standings = () => robust('st', stSources());
 
   // ---------- günlük veri ----------
   async function load() {
     refreshBtn.classList.add('spin');
     const dates = [];
     for (let n = -2; n <= 2; n++) dates.push(compact(dayKey(n)));
-    try {
-      const res = await Promise.all(dates.map((d) => espn('dates=' + d)));
-      const map = new Map();
-      res.forEach((r) => (r.events || []).forEach((e) => map.set(e.id, e)));
+    const res = await Promise.allSettled(dates.map((d) => espn('dates=' + d)));
+    const ok = res.filter((r) => r.status === 'fulfilled');
+    if (ok.length) {
+      // Bir gün gelmese bile elimizdeki veriyi koru, gelenleri üzerine yaz
+      const map = new Map(ok.length === dates.length ? [] : events.map((e) => [e.id, e]));
+      ok.forEach((r) => (r.value.events || []).forEach((e) => map.set(e.id, e)));
       events = [...map.values()];
       fetchedAt = new Date(); offline = false;
-    } catch (err) {
+    } else {
       try {
-        const snap = await fetchJSON('data/matches.json');
+        const snap = await fetchJSON(bust('data/matches.json'));
         events = snap.events || [];
         fetchedAt = new Date(snap.updated); offline = true;
       } catch (e2) {
@@ -192,7 +253,7 @@
       const res = await Promise.all([sy, sy + 1].map((yy) => espn(`dates=${yy}&limit=500`)));
       evs = res.flatMap((r) => r.events || []);
     } catch (e) {
-      evs = (await fetchJSON('data/season.json')).events || [];
+      evs = (await fetchJSON(bust('data/season.json'))).events || [];
     }
     const uniq = new Map();
     evs.filter((e) => e.season && e.season.year === sy).forEach((e) => uniq.set(e.id, e));
@@ -273,14 +334,20 @@
     requestAnimationFrame(() => tsheet.classList.add('open'));
     tbody.innerHTML = '<div class="skel" style="height:300px"></div>';
     try {
-      const j = await fetchJSON('https://site.api.espn.com/apis/v2/sports/soccer/tur.1/standings?_=' + Date.now());
-      const rows = (j.children[0].standings.entries || []).map((e) => {
+      let entries, stale = '';
+      try { entries = await standings(); }
+      catch (e) {
+        const snap = await fetchJSON(bust('data/standings.json'));
+        entries = snap.entries;
+        stale = `<p class="stale">⚠ Canlı tabloya ulaşılamadı, ${esc(new Intl.DateTimeFormat('tr-TR', { timeZone: TZ, day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(snap.updated)))} verisi gösteriliyor.</p>`;
+      }
+      const rows = entries.map((e, i) => {
         const st = {}; e.stats.forEach((x) => (st[x.name] = x));
         const v = (k) => (st[k] ? st[k].displayValue : '-');
-        return { rank: +v('rank') || 99, t: e.team, c: e.note && e.note.color, g: e.note && e.note.description, o: v('gamesPlayed'), w: v('wins'), d: v('ties'), l: v('losses'), av: v('pointDifferential'), p: v('points') };
+        return { rank: +v('rank') || i + 1, t: e.team, c: e.note && e.note.color, g: e.note && e.note.description, o: v('gamesPlayed'), w: v('wins'), d: v('ties'), l: v('losses'), av: v('pointDifferential'), p: v('points') };
       }).sort((a, b) => a.rank - b.rank);
       const legend = [...new Map(rows.filter((r) => r.g).map((r) => [r.g, r.c])).entries()];
-      tbody.innerHTML = `<div class="pt"><div class="pr ph0"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>Av</span><span>P</span></div>
+      tbody.innerHTML = stale + `<div class="pt"><div class="pr ph0"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>Av</span><span>P</span></div>
         ${rows.map((r) => `<div class="pr"><span class="rk" style="--z:${esc(r.c || 'transparent')}">${r.rank}</span><span class="tn">${r.t.logos && r.t.logos[0] ? `<img src="${esc(r.t.logos[0].href)}" alt="" loading="lazy">` : ''}${esc(r.t.shortDisplayName || r.t.displayName)}</span><span>${esc(r.o)}</span><span>${esc(r.w)}</span><span>${esc(r.d)}</span><span>${esc(r.l)}</span><span>${esc(r.av)}</span><b>${esc(r.p)}</b></div>`).join('')}</div>
         <div class="lg">${legend.map(([g, c]) => `<span><i style="background:${esc(c)}"></i>${esc(g)}</span>`).join('')}</div>`;
     } catch (e) {
