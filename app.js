@@ -63,7 +63,7 @@
   function schedule() {
     clearTimeout(timer);
     const live = events.some((e) => e.status.type.state === 'in');
-    timer = setTimeout(load, live ? 15e3 : 90e3);
+    timer = setTimeout(load, offline ? 10e3 : live ? 15e3 : 90e3);
   }
 
   // ---------- canlı dakika (ESPN gecikse de kendi saatimizle ilerler) ----------
@@ -174,7 +174,7 @@
       : `<div class="empty"><b>Bu gün maç yok</b>Süper Lig'de ${day === 0 ? 'bugün' : day < 0 ? 'dün' : 'yarın'} oynanan maç bulunmuyor.</div>`;
     if (fetchedAt && offline) {
       const t = new Intl.DateTimeFormat('tr-TR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(fetchedAt);
-      statusEl.textContent = `Önbellek verisi · ${t}`;
+      statusEl.textContent = `⚠ Canlı veriye ulaşılamadı, eski veri (${t}) · tekrar deneniyor`;
     } else tickLive();
   }
 
