@@ -100,7 +100,7 @@
     const hl = done && away.winner, al = done && home.winner;
     const venue = comp.venue && comp.venue.fullName ? `<div class="venue">${esc(comp.venue.fullName)}</div>` : '';
     return `<article class="card${state === 'in' ? ' live' : ''}" style="animation-delay:${i * 40}ms">
-      <div class="head"><span>${fmtTime(ev.date)}</span>${badge}</div>
+      <div class="head">${badge}</div>
       <div class="row">${teamHTML(home, hl)}${center}${teamHTML(away, al)}</div>
       ${goalsHTML(ev, home, away)}${venue}
     </article>`;
