@@ -327,6 +327,28 @@
 
 
   // ---------- puan durumu ----------
+  const ZONES = {
+    'champions league': 'Şampiyonlar Ligi',
+    'champions league qualifying': 'Şampiyonlar Ligi ön eleme',
+    'europa league': 'Avrupa Ligi',
+    'europa league qualifying': 'Avrupa Ligi ön eleme',
+    'conference league': 'Konferans Ligi',
+    'conference league qualifying': 'Konferans Ligi ön eleme',
+    'relegated': 'Küme düşme',
+    'relegation': 'Küme düşme',
+    'relegation playoff': 'Küme düşme play-off',
+    'promotion': 'Üst lige çıkış',
+  };
+  const trZone = (g) => {
+    const k = String(g || '').trim().toLowerCase();
+    if (ZONES[k]) return ZONES[k];
+    return k
+      .replace(/uefa\s*/g, '')
+      .replace(/champions league/g, 'Şampiyonlar Ligi').replace(/europa conference league|conference league/g, 'Konferans Ligi')
+      .replace(/europa league/g, 'Avrupa Ligi').replace(/qualif\w*/g, 'ön eleme').replace(/play-?offs?/g, 'play-off')
+      .replace(/relegat\w*/g, 'Küme düşme').replace(/round/g, 'tur').replace(/\bfirst\b/g, '1.').replace(/\bsecond\b/g, '2.').replace(/\bthird\b/g, '3.')
+      .replace(/^./, (c) => c.toLocaleUpperCase('tr-TR'));
+  };
   const tsheet = $('#tableSheet'), tbody = $('#tableBody');
   async function openTable() {
     tsheet.hidden = false;
@@ -346,7 +368,7 @@
         const v = (k) => (st[k] ? st[k].displayValue : '-');
         return { rank: +v('rank') || i + 1, t: e.team, c: e.note && e.note.color, g: e.note && e.note.description, o: v('gamesPlayed'), w: v('wins'), d: v('ties'), l: v('losses'), av: v('pointDifferential'), p: v('points') };
       }).sort((a, b) => a.rank - b.rank);
-      const legend = [...new Map(rows.filter((r) => r.g).map((r) => [r.g, r.c])).entries()];
+      const legend = [...new Map(rows.filter((r) => r.g).map((r) => [trZone(r.g), r.c])).entries()];
       tbody.innerHTML = stale + `<div class="pt"><div class="pr ph0"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>Av</span><span>P</span></div>
         ${rows.map((r) => `<div class="pr"><span class="rk" style="--z:${esc(r.c || 'transparent')}">${r.rank}</span><span class="tn">${r.t.logos && r.t.logos[0] ? `<img src="${esc(r.t.logos[0].href)}" alt="" loading="lazy">` : ''}${esc(r.t.shortDisplayName || r.t.displayName)}</span><span>${esc(r.o)}</span><span>${esc(r.w)}</span><span>${esc(r.d)}</span><span>${esc(r.l)}</span><span>${esc(r.av)}</span><b>${esc(r.p)}</b></div>`).join('')}</div>
         <div class="lg">${legend.map(([g, c]) => `<span><i style="background:${esc(c)}"></i>${esc(g)}</span>`).join('')}</div>`;
