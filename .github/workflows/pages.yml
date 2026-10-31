@@ -1,0 +1,68 @@
+# Managed by claude-telegram-bot: publishes the site to GitHub Pages on every push to the default branch.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
+        with:
+          node-version: 22
+
+      - uses: subosito/flutter-action@v2
+        if: hashFiles('pubspec.yaml') != ''
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build
+        run: |
+          set -e
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          OUT=.
+          if [ -f pubspec.yaml ]; then
+            flutter build web --release --base-href "/${REPO_NAME}/"
+            OUT=build/web
+          elif [ -f package.json ]; then
+            if [ -f package-lock.json ]; then npm ci; else npm install; fi
+            if node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)"; then npm run build; fi
+            for d in dist build out public; do
+              if [ -f "$d/index.html" ]; then OUT="$d"; break; fi
+            done
+          else
+            for d in docs public site; do
+              if [ -f "$d/index.html" ]; then OUT="$d"; break; fi
+            done
+          fi
+          if [ ! -f "$OUT/index.html" ]; then
+            echo "::error::No index.html found to publish (looked in $OUT)."
+            exit 1
+          fi
+          echo "PAGES_DIR=$OUT" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.PAGES_DIR }}
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
