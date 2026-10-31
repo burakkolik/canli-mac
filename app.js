@@ -92,17 +92,24 @@
       badge = `<span class="badge">${st.name === 'STATUS_POSTPONED' ? 'Ertelendi' : 'Başlamadı'}</span>`;
     }
     if (state === 'pre') {
-      center = `<div class="score time">${fmtTime(ev.date)}</div>`;
+      center = `<div class="score time"><i>${fmtTime(ev.date)}</i></div>`;
     } else {
-      center = `<div class="score">${esc(home.score)} - ${esc(away.score)}</div>`;
+      center = `<div class="score"><i>${esc(home.score)}</i><em>:</em><i>${esc(away.score)}</i></div>`;
     }
     const done = state === 'post';
     const hl = done && away.winner, al = done && home.winner;
     const venue = comp.venue && comp.venue.fullName ? `<div class="venue">${esc(comp.venue.fullName)}</div>` : '';
-    return `<article class="card${state === 'in' ? ' live' : ''}" style="animation-delay:${i * 40}ms">
+    const lum = (h) => { const n = parseInt(h, 16); return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); };
+    const col = (c) => {
+      const t = c.team || {}, a = (t.color || '').replace('#', ''), b = (t.alternateColor || '').replace('#', '');
+      const ok = (x) => /^[0-9a-f]{6}$/i.test(x) && lum(x) > 60 && lum(x) < 235;
+      return '#' + (ok(a) ? a : ok(b) ? b : 'e11d48');
+    };
+    const hc = col(home), ac = col(away);
+    return `<article class="card${state === 'in' ? ' live' : ''}" style="--h:${esc(hc)};--a:${esc(ac)};animation-delay:${i * 60}ms">
       <div class="head">${badge}</div>
       <div class="row">${teamHTML(home, hl)}${center}${teamHTML(away, al)}</div>
-      ${goalsHTML(ev, home, away)}${venue}
+      ${goalsHTML(ev, home, away)}${venue ? venue.replace('<div class="venue">', '<div class="venue">📍 ') : ''}
     </article>`;
   }
 
