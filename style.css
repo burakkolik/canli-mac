@@ -176,3 +176,17 @@ body.lock{overflow:hidden}
 .mt img.sm,.mt .ph.sm{width:28px;height:28px;object-fit:contain;flex:none}
 .mt .ph.sm{border-radius:50%;background:var(--chip);display:grid;place-items:center;font-size:.8rem}
 @media (max-width:420px){.wm{grid-template-columns:64px 1fr;gap:10px}.when strong{font-size:1.05rem}.current,.weeks,.weeklist{padding-left:14px;padding-right:14px}}
+
+/* puan durumu */
+.pt{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+.pr{display:grid;grid-template-columns:34px 1fr repeat(5,28px) 34px;align-items:center;gap:4px;padding:10px 12px 10px 0;font-size:.85rem;text-align:center;font-variant-numeric:tabular-nums;border-top:1px solid var(--line)}
+.pr:first-child{border-top:0}
+.pr.ph0{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;background:var(--chip)}
+.pr .rk{font-weight:800;border-left:4px solid var(--z,transparent);padding:4px 0}
+.pr .tn{display:flex;align-items:center;gap:8px;text-align:left;font-weight:600;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.pr .tn img{width:22px;height:22px;object-fit:contain;flex:none}
+.pr b{font-weight:800;color:var(--accent)}
+.pr.ph0 .tn,.pr.ph0 span:nth-child(2){text-align:left}
+.lg{display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 4px 0;font-size:.78rem;color:var(--muted)}
+.lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+@media (max-width:380px){.pr{grid-template-columns:30px 1fr repeat(5,24px) 30px;font-size:.78rem}.pr .tn img{display:none}}
