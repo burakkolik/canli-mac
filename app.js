@@ -67,7 +67,7 @@
     const line = (d) => {
       const who = (d.athletesInvolved && d.athletesInvolved[0] && d.athletesInvolved[0].displayName) || 'Gol';
       const tag = d.ownGoal ? ' (K.K.)' : d.penaltyKick ? ' (P)' : '';
-      return `<div>⚽ ${esc(who)}${tag} ${esc((d.clock && d.clock.displayValue) || '')}</div>`;
+      return `<div>⚽ ${esc((d.clock && d.clock.displayValue) || '')} ${esc(who)}${tag}</div>`;
     };
     const h = det.filter((d) => d.team && d.team.id === home.team.id).map(line);
     const a = det.filter((d) => d.team && d.team.id === away.team.id).map(line);
