@@ -264,6 +264,38 @@
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.hidden) closeMenu(); });
 
+
+  // ---------- puan durumu ----------
+  const tsheet = $('#tableSheet'), tbody = $('#tableBody');
+  async function openTable() {
+    tsheet.hidden = false;
+    document.body.classList.add('lock');
+    requestAnimationFrame(() => tsheet.classList.add('open'));
+    tbody.innerHTML = '<div class="skel" style="height:300px"></div>';
+    try {
+      const j = await fetchJSON('https://site.api.espn.com/apis/v2/sports/soccer/tur.1/standings?_=' + Date.now());
+      const rows = (j.children[0].standings.entries || []).map((e) => {
+        const st = {}; e.stats.forEach((x) => (st[x.name] = x));
+        const v = (k) => (st[k] ? st[k].displayValue : '-');
+        return { rank: +v('rank') || 99, t: e.team, c: e.note && e.note.color, g: e.note && e.note.description, o: v('gamesPlayed'), w: v('wins'), d: v('ties'), l: v('losses'), av: v('pointDifferential'), p: v('points') };
+      }).sort((a, b) => a.rank - b.rank);
+      const legend = [...new Map(rows.filter((r) => r.g).map((r) => [r.g, r.c])).entries()];
+      tbody.innerHTML = `<div class="pt"><div class="pr ph0"><span>#</span><span>Takım</span><span>O</span><span>G</span><span>B</span><span>M</span><span>Av</span><span>P</span></div>
+        ${rows.map((r) => `<div class="pr"><span class="rk" style="--z:${esc(r.c || 'transparent')}">${r.rank}</span><span class="tn">${r.t.logos && r.t.logos[0] ? `<img src="${esc(r.t.logos[0].href)}" alt="" loading="lazy">` : ''}${esc(r.t.shortDisplayName || r.t.displayName)}</span><span>${esc(r.o)}</span><span>${esc(r.w)}</span><span>${esc(r.d)}</span><span>${esc(r.l)}</span><span>${esc(r.av)}</span><b>${esc(r.p)}</b></div>`).join('')}</div>
+        <div class="lg">${legend.map(([g, c]) => `<span><i style="background:${esc(c)}"></i>${esc(g)}</span>`).join('')}</div>`;
+    } catch (e) {
+      tbody.innerHTML = '<div class="empty"><b>Puan durumu alınamadı</b>Lütfen daha sonra tekrar deneyin.</div>';
+    }
+  }
+  function closeTable() {
+    tsheet.classList.remove('open');
+    document.body.classList.remove('lock');
+    setTimeout(() => { tsheet.hidden = true; }, 260);
+  }
+  $('#tableBtn').addEventListener('click', openTable);
+  tsheet.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeTable(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tsheet.hidden) closeTable(); });
+
   // ---------- olaylar ----------
   document.querySelectorAll('.tabs button').forEach((b) =>
     b.addEventListener('click', () => { day = +b.dataset.day; render(); }));

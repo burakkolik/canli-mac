@@ -190,3 +190,4 @@ body.lock{overflow:hidden}
 .lg{display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 4px 0;font-size:.78rem;color:var(--muted)}
 .lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
 @media (max-width:380px){.pr{grid-template-columns:30px 1fr repeat(5,24px) 30px;font-size:.78rem}.pr .tn img{display:none}}
+.tbody{flex:1;overflow-y:auto;padding:16px 16px 40px}
